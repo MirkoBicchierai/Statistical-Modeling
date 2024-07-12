@@ -1,0 +1,660 @@
+---
+title: "Relazione progetto Statistical Modeling"
+author: "Mirko Bicchierai"
+date: "2024-06-28"
+output:
+  bookdown::pdf_document2:
+    number_sections: true
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE) 
+```
+
+# Introduzione
+
+## Introduzione al Dataset
+
+Il dataset analizzato nel mio studio è "Globclus_prop", che contiene le misurazioni di 20 proprietà astronomiche e astrofisiche relative a 147 ammassi globulari nella Via Lattea. Queste misurazioni provengono dal catalogo di Webbink (1985), considerato un punto di riferimento essenziale per l'analisi di queste strutture celesti.
+
+## Variabili coinvolte e metodologia di Studio
+
+Data la complessità degli studi astrofisici, ho deciso di iniziare con un approfondimento delle variabili presenti nel dataset, per comprenderne il significato fondamentale. Di seguito, è riportata una lista dettagliata delle variabili coinvolte, insieme alle rispettive unità di misura.
+
+1. **Name**: Nome comune
+2. **Gal.long**: Longitudine galattica (gradi)
+3. **Gal.lat**: Latitudine galattica (gradi)
+4. **R.sol**: Distanza dal Sole (kiloparsecs, kpc)
+5. **R.GC**: Distanza dal Centro Galattico (kpc)
+6. **Metal**: Logaritmo della metallicità rispetto a quella solare
+7. **Mv**: Magnitudine assoluta, è una misura della luminosità del cluster, osservato da una distanza standard
+8. **r.core**: Raggio del "nucleo" (parsecs, pc), è la distanza dal centro del cluster entro la quale la densità
+superficiale delle stelle si dimezza rispetto al valore medio
+9. **r.tidal**: Raggio di marea (pc), è il raggio dal centro del cluster entro il quale le forze di marea causate
+da un corpo esterno diventano dominanti rispetto alle forze gravitazionali interne
+10. **Conc**: Parametro di concentrazione del nucleo
+11. **log.t**: Logaritmo del tempo di rilassamento centrale (anni), è il tempo necessario affinchè il cluster
+raggiunga uno stato di equilibrio dinamico a seguito delle interazioni gravitazionali
+12. **log.rho**: Logaritmo della densità centrale (Masse solari per pc cubo)
+13. **S0**: Velocità di dispersione centrale (km/s), la velocità media con cui le stelle del cluster si muovono
+attorno al centro
+14. **V.esc**: Velocità di fuga centrale (km/s), la velocità minima che una stella deve avere per sfuggire dalla
+gravità del cluster
+15. **VHB**: Livello del ramo orizzontale (mag), rappresenta una specifica fase evolutiva delle stelle
+16. **E.B-V**: Eccesso di colore (mag), è una misura della differenza tra il colore apparente di un oggetto
+celeste e il suo colore atteso sulla base di modelli teorici o stime, dovuta alla presenza di polvere
+interstellare
+17. **B-V**: Indice di colore (mag)
+18. **Ellipt**: Ellitticità
+19. **V.t**: Magnitudine V integrata (mag), è la luminosità totale di un cluster, come appare dalla Terra,
+nella fascia di luce visibile
+20. **CSB**: Luminosità superficiale centrale (mag per arcsec al quadrato), descrive la quantità di luce
+emmessa per unità di area, calcolata al centro del cluster
+
+## Obbiettivo dello Studio
+
+Dopo aver approfondito il significato scientifico delle proprietà presenti nel dataset, ho deciso di focalizzare questo progetto sull'analisi della magnitudine assoluta degli ammassi globulari, rappresentata dalla variabile "Mv", seguendo quindi l’indicazione dell’esercizio 1 dell’appendice C.7 del libro ”Modern statistical methods with R applications”, per la quale si specificava la richiesta di effettuare regressioni sulle variabili strutturali del cluster nel dataset, ponendo la variabile ”Mv” come risposta dei modelli utilizzati.
+
+La magnitudine assoluta, in astronomia, è la magnitudine apparente che un oggetto avrebbe se si trovasse a una distanza di 10 parsec o 1 unità astronomica dall’osservatore, a seconda del tipo di oggetto (stellare/galattico o corpo del Sistema Solare). In altre parole, è una misura della luminosità intrinseca di un oggetto. Più un oggetto è intrinsecamente luminoso, più la sua magnitudine assoluta è numericamente bassa o addirittura negativa (nel nostro dataset varia da -10.400 a -3.300, con una media di -7.431).
+
+L'obiettivo di questo studio è capire quali variabili nel dataset "Globclus_prop" influenzino la magnitudine assoluta e in che modo.
+
+La magnitudine apparente in una determinata banda x è definita come: $m_x = -2.5log(F_x) + C$, dove $F$ è il flusso osservato nella banda x, e $C$ è una costante dipendente dalla banda in cui l'oggetto è osservato e nel visibile ha un valore di circa $0.941$. Per calcolare la magnitudine assoluta ($Mv$) data quella apparente ($m$), è necessario ricordare che la luminosità di un oggetto è inversamente proporzionale al quadrato della sua distanza. Ne segue che la differenza fra la magnitudine apparente e la magnitudine assoluta di un oggetto sarà espressa dalla seguente formula: $Mv = m + 5 -5log(d)$ dove $d$ è la distanza della stella espressa in parsec.
+ 
+## Operazioni Preliminari
+
+Prima di procedere alla fase di analisi vera e propria del dataset, sono state effettuate alcune operazioni preliminari. Data l’elevata presenza di osservazioni con misurazioni mancanti per una o più variabili, si è deciso di rimuovere tali osservazioni utilizzando il comando "na.omit" di R. Questo ha ridotto il dataset da 147 a 113 osservazioni, rendendolo più significativo per l'obiettivo finale di previsione.
+
+Inoltre, è stato rinominato il dataset per facilitarne l’utilizzo durante le analisi successive. I nomi delle variabili non sono stati modificati, in quanto risultavano già sufficientemente chiari e descrittivi.
+
+```{r}
+
+require(astrodatR)
+data(GlobClus_prop)
+clusters <- GlobClus_prop
+clusters <- na.omit(clusters)
+
+summary(clusters)
+```
+
+## Selezione delle Variabili
+
+Nel contesto di questo dataset caratterizzato da una complessità elevata dovuta al gran numero di variabili, è stata avviata un'esplorazione preliminare mirata alla loro riduzione per semplificare l'analisi.
+
+La prima variabile eliminata è stata "Name", ritenuta insignificante per qualsiasi analisi inferenziale. Inoltre, dato che l'attenzione è focalizzata sulla variabile "Mv" (magnitudine assoluta), è stata scelta di trascurare "V.t", la magnitudine integrata, poiché rappresenta semplicemente un altro modo di descrivere la magnitudine di un ammasso globulare (specificamente la magnitudine che l'oggetto avrebbe se fosse compresso in un singolo punto luminoso), senza aggiungere rilevanza allo studio.
+
+Successivamente, dopo un'analisi della matrice di covarianza (di cui l'output è omesso per le dimensioni considerevoli), è stata eliminata una delle due variabili correlate che rappresentavano la distanza del corpo celeste: "R.sol" o "R.GC", poiché presentavano una correlazione molto alta (0.97). Per questo studio, è stata mantenuta come misura della distanza la variabile "R.GC", che rappresenta la distanza dal centro galattico, anziché quella rispetto al sole.
+
+Qui di seguito è riportato un dataset dopo l’eliminazione di tali variabili.
+
+
+```{r}
+clusters <- clusters[c(-1,-4,-19)]
+```
+
+Nella fase successiva, verranno analizzate ed esplorate le relazioni tra le varie variabili del dataset. Per agevolare questo studio, il dataset è stato suddiviso in diverse sottocategorie, data la sua alta complessità. Questo approccio è stato adottato per facilitare la visualizzazione e l'analisi, mantenendo in ogni gruppo la variabile "Mv" come riferimento. Questa analisi permetterà di comprendere le relazioni esistenti tra le variabili, con l'obiettivo di eliminare alcune di esse dal modello statistico che verrà utilizzato.
+
+## Primo cluster di variabili, posizione dei corpi celesti
+
+Questo cluster è stato progettato per raggruppare tutte le variabili posizionali dei corpi celesti registrati nel dataset. È composto esclusivamente dalle variabili "Mv" e dalle coordinate di posizione, quali "Gal.long", "Gal.lat" e "R.GC". Attraverso la stampa degli scatter plot delle variabili a coppie, è possibile osservare se esiste qualche tipo di relazione tra le variabili, effettuando una semplice analisi grafica.
+
+
+Di seguito è riportato il codice necessario per creare il primo cluster a partire dal dataset originario. Questo cluster raggruppa tutte le variabili posizionali dei corpi celesti:
+
+```{r}
+c_pos <- clusters[,c(-4,-6,-7,-8,-9,-10,-11,-12,-13,-14,-15,-16,-17)]
+summary(c_pos)
+```
+
+A questo punto, si procederà con una visualizzazione grafica di questo gruppo di variabili, partendo dagli scatter plot, al fine di analizzare e individuare possibili relazioni tra le variabili.
+
+```{r}
+pairs(c_pos, panel = panel.smooth)
+```
+
+
+Dall'analisi grafica non emerge alcun tipo di correlazione tra queste variabili posizionali, e soprattutto risulta evidente l'assenza di correlazioni lineari tra di esse. Tuttavia, anche in questi casi, conviene tentare comunque di costruire un modello statistico, in questo caso lineare, per effettuare un'analisi più approfondita e cercare di ottenere maggiori informazioni prima di escludere queste variabili dall'analisi finale. La variabile di risposta, che rispecchia l'obiettivo preposto, sarà sempre "Mv".
+
+```{r}
+qm <- lm(Mv ~ Gal.long + Gal.lat + R.GC, data = c_pos)
+summary(qm)
+```
+
+Dai risultati ottenuti con questo modello lineare di base, il più semplice, non emerge una significatività statistica per la variabile di risposta "Mv" rispetto alle variabili posizionali. Questo risultato era comunque atteso ed è in linea con le proprietà del dataset e delle variabili stesse, poiché la magnitudine assoluta è una proprietà intrinseca del cluster globulare e non dipende dalla sua posizione spaziale. L'analisi pratica effettuata, quindi, conferma le proprietà teoriche e fisiche delle variabili presenti nel dataset.
+
+
+## Secondo cluster di variabili
+
+
+A questo punto, si definisce un secondo gruppo di variabili del dataset, distinto dal primo, che include tutte le variabili rimanenti escludendo quelle relative alle posizioni analizzate nel primo cluster ad eccezzione della nostra variabile di risposta "Mv".
+
+```{r}
+c_res <- clusters[,c(-1,-2,-3)]
+summary(c_res)
+```
+In questo ampio gruppo di variabili rimanenti, è possibile identificare un ulteriore sottogruppo che presenta proprietà fisiche comuni, similmente al precedente cluster relativo alle posizioni. In particolare, le variabili "Metal", "E.B.V", "B.V", "Ellipt", "VHB" e "CSBt" condividono caratteristiche fisiche del corpo celeste in esame.
+
+* **Metal** rappresenta il logaritmo della metallicità rispetto a quella solare.
+* **E.B.V** misura la differenza tra il colore apparente di un oggetto celeste e il suo colore atteso.
+* **B.V** è un indice di colore che riflette la differenza tra la magnitudine in banda blu e quella in banda visibile.
+* **Ellipt** indica l'eccentricità della forma dell'oggetto.
+* **VHB** rappresenta la magnitudine assoluta in banda B per oggetti della popolazione HB (Horizontal Branch).
+* **CSBt** è una misura della classificazione spettrale.
+
+Per ulteriori dettagli sulle variabili, si rimanda alla prima sezione del report.
+Come per il primo cluster, anche questo secondo gruppo di variabili sarà suddiviso in due sottogruppi: il primo riguarderà le proprietà fisiche dei corpi celesti, mentre il secondo includerà le variabili rimanenti.
+
+```{r}
+c_fis <- clusters[,c(-2, -1,-3,-6,-7,-8,-9,-10,-11,-12)]
+summary(c_fis)
+```
+
+Si procederà ora ad analizzare la correlazione tra le varie variabili, poiché alcune di esse potrebbero indicare aspetti simili. Questa analisi ha l'obiettivo di identificare variabili ad alta correlazione. Se tali variabili presentano significati sovrapponibili, si potrebbe considerare la rimozione per semplificare il modello.
+
+```{r}
+cor(c_fis[-2])
+```
+
+Esaminando la tabella delle correlazioni, emerge chiaramente un valore particolarmente elevato: la correlazione tra le variabili "E.B.V" e "B.V", che è pari a circa 0.95, di base misurano concetti simili:
+
+* **E.B.V** rappresenta l'eccesso di colore, ovvero la differenza tra l'indice di colore osservato dell'ammasso e il suo indice di colore intrinseco o atteso.
+* **B.V** è un semplice indice di colore.
+
+Poiché entrambe le variabili esprimono lo stesso significato, seppur da angolazioni diverse, e data la loro alta correlazione, è stato deciso di mantenere la variabile "B.V" per motivi di semplicità di interpretazione.
+
+```{r}
+c_fis <- c_fis[-4]
+pairs(c_fis, panel = panel.smooth)
+```
+
+Analizzando gli scatter plot delle variabili a coppie, emergono alcune relazioni significative tra le variabili. Pertanto, si procederà ora con l'applicazione di un semplice modello di regressione lineare su questi dati, utilizzando sempre la variabile di risposta "Mv". Questo modello aiuterà a esplorare ulteriormente le relazioni identificate e a valutare l'effetto delle variabili esplicative sulla variabile di risposta.
+
+
+
+```{r}
+qm <- lm(Mv ~ Metal + VHB + B.V + Ellipt+ CSBt, data = c_fis)
+summary(qm)
+```
+Dal semplice modello di regressione lineare emerge un'importanza statistica elevata per le variabili "VHB" e "Ellipt". Tuttavia, per l'analisi finale, si è deciso di mantenere tutte le variabili ad eccezione di "CSBt", che è risultata meno significativa rispetto alle altre. Questo approccio si basa sul fatto che la variabile di risposta "Mv" è anch'essa una proprietà fisica, e quindi le variabili rimaste potrebbero rivelarsi utili per l'analisi, contribuendo a una comprensione più completa delle dinamiche in gioco, evitando di perdere meno informazioni possibili.
+
+```{r}
+c_fis <- c_fis[-6]
+summary(c_fis)
+```
+
+
+## Terzo cluster di variabili
+
+A questo punto, rimane da analizzare l'ultimo set di variabili rimaste nel dataset, che include: "r.core", "r.tidal", "Conc", "log.t", "log.rho", "V.esc" e "S0". Queste variabili saranno esaminate insieme alla variabile di risposta scelta, "Mv". Questa analisi finale permetterà di valutare il contributo di ciascuna di queste variabili al modello e di identificare eventuali relazioni significative con la variabile di risposta.
+
+```{r}
+c_last <- clusters[,c(-1,-2,-3,-4,-13,-14,-15,-16,-17)]
+summary(c_last)
+```
+
+Anlizziamo adesso l'indice di correlazione tra le variabili di questo gruppo:
+
+```{r}
+cor(c_last[-1])
+```
+
+Analizzando la matrice di correlazioni, si osservano alcuni indici di correlazione molto elevati tra le variabili. In particolare, due variabili, "V.esc" e "S0", presentano un valore di correlazione estremamente alto, pari a 0.99. Pertanto, è opportuno considerare la possibilità di mantenere solo una delle due variabili per evitare ridondanze nel modello. Questa decisione permetterà di semplificare l'analisi senza compromettere la qualità delle informazioni fornite. 
+
+
+Dopo un'analisi approfondita delle proprietà fisiche espresse dalle variabili, è stato deciso di mantenere "S0" rispetto a "V.esc". La variabile "S0" fornisce informazioni sulla distribuzione delle velocità delle stelle all'interno dell'ammasso, risultando quindi particolarmente utile per comprendere le caratteristiche dinamiche del sistema. Di conseguenza, "V.esc" sarà esclusa dall'analisi finale.
+
+```{r}
+library(ggplot2)
+ggplot(clusters, aes(x=S0,y= V.esc)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+c_last <- c_last[-8]
+```
+Si procederà ora, come fatto in precedenza, ad analizzare gli scatter plot delle variabili a coppie per esaminare graficamente eventuali altre relazioni tra le variabili. Questa analisi visiva aiuterà a identificare ulteriori tendenze o correlazioni che potrebbero non essere evidenti tramite l'analisi delle sole correlazioni numeriche.
+
+```{r}
+pairs(c_last, panel = panel.smooth)
+```
+Di seguito il modello di regressione lineare con le variabili rimaste in gioco:
+
+```{r}
+qm <- lm(Mv ~ r.core + r.tidal + Conc + log.t + log.rho + S0, data = c_last)
+summary(qm)
+```
+Nel contesto del modello di regressione lineare con la magnitudine come variabile di risposta, le variabili “Conc”, “log.rho” e "log.t" si sono dimostrate altamente significative. Al contrario, i raggi che descrivono l'ammasso globulare non risultano significativi. Tuttavia, è stata presa la decisione di eliminare solo una di queste variabili, ovvero “r.core”, poiché ha il p-value più alto nel modello. La variabile "S0", sebbene abbia mostrato una minore significatività statistica nel modello, è stata mantenuta per il valore informativo che apporta riguardo alla distribuzione delle velocità delle stelle all'interno dell'ammasso.
+
+# Modelli di regressione lineare
+
+## Setup
+
+A questo punto, per evitare confusioni, si procederà a ricostruire il dataset escludendo le variabili risultate poco significative nell'analisi precedente. Le variabili escluse sono:
+
+* **E.B.V** (a causa della sua alta correlazione con “B.V”)
+* **CSBt** (a causa della sua bassa significatività)
+* **V.esc** (a causa dell'alta correlazione con “S0”)
+* **r.core** (a causa del p-value più alto nel modello di regressione utilizzato precedentemente)
+* **Variabili posizionali del primo cluster** (a causa della loro bassa significatività)
+
+```{r}
+data <- clusters[,c(-1,-2,-3,-6,-12,-17,-14)]
+summary(data)
+```
+A questo punto, dopo una prima selezione delle variabili utili, il dataset è stato ridotto a 10 variabili, con "Mv" sempre come variabile di risposta.
+
+## Regressione lineare
+
+Per identificare possibili connessioni e interazioni all'interno del dataset ridotto, è stata implementata una serie di modelli di regressione lineare semplice, uno per ciascuna delle variabili indipendenti con la variabile di risposta "Mv". Di seguito sono presentati i grafici di confronto tra “Mv” e le singole variabili, insieme al summary dei singoli modelli.
+
+
+```{r}
+library(gridExtra)
+p1 <- ggplot(data, aes(x=Metal,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p2 <- ggplot(data, aes(x=r.tidal,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p3 <- ggplot(data, aes(x=log.t,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p4 <- ggplot(data, aes(x=log.rho,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p5 <- ggplot(data, aes(x=S0,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p6 <- ggplot(data, aes(x=VHB,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p7 <- ggplot(data, aes(x=B.V,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p8 <- ggplot(data, aes(x=Ellipt,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+p9 <- ggplot(data, aes(x=Conc,y= Mv)) + 
+  geom_point(color = "blue") + 
+  geom_smooth(method = "lm", color = "orange")
+
+grid.arrange(
+  arrangeGrob(
+    p1,
+    p2,
+    p3,
+    ncol = 1
+  ),
+  arrangeGrob(
+    p4,
+    p5,
+    p6,
+    ncol = 1
+  ),
+  arrangeGrob(
+    p7,
+    p8,
+    p9,
+    ncol = 1
+  ),
+  widths = c(1,1,1)
+)
+```
+
+```{r}
+lm <- lm(Mv ~ Metal, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ log.rho, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ B.V, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ r.tidal, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ S0, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ Ellipt, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ log.t, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ VHB, data = data)
+summary(lm)
+```
+
+```{r}
+lm <- lm(Mv ~ Conc, data = data)
+summary(lm)
+```
+Dai modelli di regressione lineare semplice emerge che alcune variabili influenzano la variabile di risposta "Mv" in modo positivo e altre in modo negativo, come evidenziato dai coefficienti. In particolare, le variabili “VHB”, “BV”, “Metal” e “log.t” hanno mostrato una bassa significatività singolarmente. Tuttavia, prima di procedere all'eliminazione di queste variabili, è opportuno costruire un modello di regressione lineare multipla che includa tutte le variabili selezionate. Questo modello completo potrebbe rivelare interazioni tra variabili che non sono visibili nei modelli semplici con una sola variabile.
+
+```{r}
+complete_lm <-lm(Mv ~ r.tidal + Conc + log.rho + S0 + Ellipt + Metal + log.t + VHB + B.V, data=data)
+summary(complete_lm)
+```
+Per affinare il modello di regressione lineare multipla,si procede eliminando le variabili meno significative in modo graduale, procedendo per step anziché eliminarle tutte in blocco. Questo metodo permette di valutare l'impatto di ogni variabile sull'accuratezza del modello e garantisce che nessuna variabile significativa venga rimossa prematuramente.
+
+Procediamo quindi con eliminare le variabili "Metal" e B.V le quali risultano le meno significative.
+
+```{r}
+lm_clear1 <-lm(Mv ~ log.t + VHB + r.tidal + Conc + log.rho + S0 + Ellipt, data=data)
+summary(lm_clear1)
+```
+A questo punto, si decide di eliminare anche le variabili "Conc" e "S0". Anche in questo modello, tali variabili risultano essere poco significative, nonostante la rimozione di altre due variabili. Tale insignificanza era già evidente nel modello completo, confermando quindi la correttezza della scelta di escluderle.
+
+```{r}
+lm_clear2 <-lm(Mv ~ log.t + VHB + r.tidal + log.rho + Ellipt, data=data)
+summary(lm_clear2)
+```
+Questo modello di regressione può essere considerato adeguato, poiché tutte le variabili incluse mostrano una certa rilevanza e risultano significative. Il modello in questione è il seguente:
+
+Mv ~ log.t + VHB + r.tidal + log.rho + Ellipt
+
+Tuttavia, tre variabili, "log.t", "log.rho" e "r.tidal", presentano una significatività inferiore rispetto alle altre due rimaste. Pertanto, potrebbe essere conveniente continuare con il metodo di eliminazione graduale delle variabili meno significative. Per questioni di spazio, i vari summary dei modelli non verranno riportati.
+
+```{r}
+# Esclusione di log.rho
+lm_clear3 <-lm(Mv ~ log.t + VHB + r.tidal + Ellipt, data=data)
+# Esclusione di log.t (p-value 0.553 su lm_clear3)
+lm_clear4 <-lm(Mv ~ VHB + r.tidal + Ellipt, data=data)
+# Esclusione di r.tidal (p-value 0.0844 su lm_clear4)
+lm_clear5 <-lm(Mv ~ VHB + Ellipt, data=data)
+summary(lm_clear5)
+```
+A questo punto, abbiamo ottenuto un modello di regressione molto semplice, che utilizza soltanto due variabili. Questo modello è stato sviluppato tramite un approccio "backwards", e entrambe le variabili risultano altamente significative. Inoltre, il modello presenta un valore di Adjusted R-squared molto elevato, indicativo di una buona qualità di adattamento. Il modello finale ottenuto è il seguente:
+
+Mv ~ VHB + Ellipt
+
+Ho quindi deciso di rimuovere le variabili che non sono risultate significative nel confronto diretto. La variabile “BV” è stata esclusa in quanto è risultata la meno significativa tra tutte. La variabile “log.t”, era stata considerata per l'eliminazione a priori, poiché intuitivamente non sembrava influenzare direttamente la magnitudine assoluta. Anche da questa ultima analisi, la variabile risulta poco significativa ed è quindi stata rimossa. Successivamente viene mostrato un plot del piano di regressione del modello:
+```{r}
+library(scatterplot3d)
+plot3d <- scatterplot3d(data$VHB,data$Ellipt,data$Mv, angle=120, scale.y=0.7, pch=16,
+                        color ="orange", main ="Regression Plane" ,type = "h")
+plot3d$plane3d(lm_clear5, lty.box = "solid")
+```
+
+## Selezione del modello con metodi iterativi (AIC e BIC)
+
+In questo paragrafo si cercherà di stimare il modello statistico che meglio descrive la variabile target che si vuole studiare, "Mv". La selezione del modello verrà effettuata utilizzando le procedure AIC e BIC nelle direzioni "forward", "backward" e "both".
+
+### Procedura AIC
+
+Di seguito vengono riportati i risultati ottenuti con la procedura AIC prima nella direzione "forward", nella direzione "backward" e successivamente "both".
+
+```{r}
+qm_complete <-lm(Mv ~ r.tidal + Conc + log.rho + S0 + Ellipt + Metal + VHB, data=data)
+qm_1 <-lm(Mv ~ 1, data=data)
+
+# AIC FORWARD
+aic_for = step(qm_1, scope=formula(qm_complete), direction="forward", k=2)
+```
+
+```{r}
+summary(aic_for)
+```
+
+```{r}
+# AIC BACKWARD
+aic_back <- step(qm_complete, scope=formula(qm_1), direction ="backward", k=2)
+```
+
+```{r}
+summary(aic_back)
+```
+
+```{r}
+# AIC BOTH
+aic_both <- step(qm_1, scope=formula(qm_complete), direction ="both", k=2)
+```
+
+```{r}
+summary(aic_both)
+```
+
+Modelli ottenuti:
+
+* AIC direzione "forward" : Mv ~ S0 + r.tidal + Ellipt + VHB + Conc
+* AIC direzione "backward" : Mv ~ S0 + r.tidal + Ellipt + VHB + Conc
+* AIC direzione "both": Mv ~ S0 + r.tidal + Ellipt + VHB + Conc
+
+Con tutte le varianti del metodo AIC si ottiene lo stesso modello per la variabile di risposta "Mv".
+
+### Procedura BIC
+
+Di seguito vengono riportati i risultati ottenuti con la procedura BIC prima nella direzione "forward", nella direzione "backward" e successivamente "both". Nel criterio di penalizzazione BIC si seleziona k = log(numero di osservazioni) che, quindi, dopo aver omesso i valori na, è pari a 113 per il dataset.
+
+```{r}
+# BIC FORWARD
+bic_for = step(qm_1, scope=formula(qm_complete), direction="forward", k=log(113))
+```
+
+```{r}
+summary(bic_for)
+```
+
+```{r}
+# BIC BACKWARD
+bic_back <- step(qm_complete, scope=formula(qm_1), direction ="backward", k=log(113))
+```
+
+```{r}
+summary(bic_back)
+```
+
+```{r}
+#BIC BOTH
+bic_both <- step(qm_1, scope=formula(qm_complete), direction="both", k=log(113))
+```
+
+```{r}
+summary(bic_both)
+```
+
+Modelli ottenuti:
+
+* BIC direzione "forward" : Mv ~ S0 + r.tidal + Ellipt + VHB
+* BIC direzione "backward" :Mv ~ Ellipt + VHB
+* BIC direzione "both" : Mv ~ Ellipt + VHB
+
+## Contronto tra i modelli ottenuti mediante le diverse tecniche utilizzate
+
+Il modello AIC in tutte e tre le modalità viste, forward, backward e both, seleziona lo stesso modello:
+
+* Mv ~ S0 + r.tidal + Ellipt + VHB + Conc
+
+Il modello è descritto da:
+
+```{r}
+summary(aic_both)
+```
+
+In questo modello, la variabile "Conc" è risultata non significativa (p-value = 0.15016). Inoltre, le variabili "S0" e "r.tidal" hanno mostrato p-value relativamente elevati, rispettivamente 0.15016 e 0.00868, pur essendo statisticamente significativi. Pertanto, ho deciso di escludere questo modello nella scelta finale, sia a causa della scarsa significatività di alcune variabili, sia perché la presenza di molteplici variabili che rendono il modello di difficile rappresentazione.
+
+Il modello BIC invece seleziona due modelli diversi:
+
+* BIC direzione "forward" : Mv ~ S0 + r.tidal + Ellipt + VHB
+```{r}
+summary(bic_for)
+```
+
+La variabile "S0" non risulta significativa (p-value 0.0667) e "r.tidal" ha un p-value di 0.0127, che seppur significativo non è troppo basso come valore. Anche questo modello quindi è stato scartato.
+
+* BIC direzione "backward" e "both" :Mv ~ Ellipt + VHB
+
+```{r}
+summary(bic_both)
+```
+Questo modello corrisponde a quello ottenuto in precedenza tramite la rimozione manuale delle variabili meno significative, fino a lasciare solo quelle più rilevanti. Entrambe le variabili rimanenti risultano essere molto significative a livello statistico per la variabile di risposta "Mv". Inoltre, questo modello, oltre ad avere un altissimo valore di Adjusted R-squared pari a 0.9985, si distingue per la sua semplicità e facilità di interpretazione, poiché è composto da sole due variabili.
+
+Il modello quindi che risulta essere più semplice e di facile intrepretazione, oltre ad avere tutte le variabili altamente significative è quello selezionato minimizzando “BIC” (direzione “backward” e “both”).
+
+In generale il fatto che minimizzando "BIC" si ottengano dei modelli di regressione lineare più semplici, parsimoniosi è un risultato atteso ed era il mio obbiettivo principale, ho voluto comunque testare la metodologia AIC per vedere se selezionava comunque qualche modello interesante ma così non è stato.
+
+
+# Metodi grafici
+
+In questo paragrafo verranno costruiti i grafi (non direzionato e DAG) per individuare le relazioni causali tra le variabili del dataset. Per questa analisi, verranno utilizzate tutte le variabili considerate nella sezione sulla regressione, comprese quelle eliminate nelle fasi iniziali delle regressioni semplici. Le variabili incluse sono: "Mv", "r.tidal", "Conc", "log.rho", "S0", "Ellipt", "Metal", "log.t", "VHB" e "B.V".
+
+## Matrice di concentrazione e matrice delle correlazioni parziali
+
+Per la costruzione di questi grafi, è importante notare che tutte le variabili sono continue. Di conseguenza, sarà necessario calcolare la matrice di concentrazione e, successivamente, la matrice delle correlazioni parziali.
+
+```{r}
+library(gRbase)
+
+# Matrice di covarianza
+m_cov <- cov.wt(data, method="ML")$cov
+# Matrice di concentrazione
+m_conc <- solve(m_cov)
+# Correlazioni parziali
+m_pc <-cov2pcor(m_conc)
+m_pc
+
+```
+
+È importante notare che alcune variabili presentano tra di loro un coefficiente di correlazione piuttosto elevato. Ad esempio, la variabile "S0" ha una correlazione di 0.816 con "Mv", indicando una forte relazione lineare positiva tra queste due variabili. Analogamente, "log.rho" e "log.t" hanno una correlazione di 0.829, suggerendo una forte relazione positiva tra di loro. Al contrario, "VHB" e "Ellipt" mostrano una correlazione di -0.813, indicando una forte relazione lineare negativa. Questi alti valori di correlazione devono essere tenuti in considerazione durante l'analisi causale, poiché potrebbero influenzare la costruzione e l'interpretazione dei grafi.
+
+## Grafo non direzionato
+
+Per la rappresentazione del grafo non direzionato si utilizza la procedura GLASSO (Graphical Lasso). Questa tecnica mira a ridurre l’overfitting e gli effetti indesiderati dovuti a una eventuale collinearità tra le variabili altamente correlate. Inoltre, GLASSO permette di ottenere un grafo sparso, semplificando così la trattazione riducendo le connessioni tra le variabili.
+
+```{r}
+df_data = data.frame(data)
+library(gRain)
+library(gRim)
+library(glasso)
+library(igraph)
+c <- cov2cor(m_cov)
+res_lasso <- glasso(c, rho=0.1)
+AM <- res_lasso$wi != 0
+diag(AM) <- F
+colnames(AM) <- names(df_data)
+rownames(AM) <- names(df_data)
+gl <- as_graphnel(as(AM, "igraph"))
+plot(gl, "neato")
+```
+```{r}
+graph::degree(gl)
+```
+La lettura del grafo è utile per individuare, in maniera preliminare, le connessioni causali tra le variabili. Il grafo è stato ottenuto impostando il parametro di regolarizzazione a 0.1; di conseguenza, il grafo presenta molte connessioni tra le variabili. Concentrandosi sulla variabile "Mv", l'obiettivo di questo studio, essa risulta connessa con altre sette variabili: "S0", "Ellipt", "log.rho", "Conc", "log.t", "r.tidal" e "VHB". Tutti questi collegamenti sono sicuramente corretti da un punto di vista fisico almeno a primo impatto in quanto:
+
+* **r.tidal** (Raggio di marea): Indica il raggio entro il quale le forze di marea esterne diventano dominanti. Un raggio di marea maggiore suggerisce un cluster più grande o più massiccio, il che può aumentare la luminosità totale del cluster, influenzando quindi la magnitudine assoluta (Mv).
+
+* **Conc** (Parametro di concentrazione del nucleo): Misura quanto è concentrato il nucleo del cluster. Un nucleo più concentrato implica una maggiore densità stellare centrale, che può aumentare la luminosità osservata del cluster.
+
+* **log.t** (Logaritmo del tempo di rilassamento centrale): Rappresenta il tempo necessario affinché il cluster raggiunga un equilibrio dinamico. Un tempo di rilassamento più lungo indica un cluster più massiccio e meno evoluto dinamicamente, il che può in alcuni casi influenzare positivamente la luminosità totale del cluster.
+
+* **log.rho** (Logaritmo della densità centrale): Indica la densità stellare centrale. Una maggiore densità centrale implica più stelle per unità di volume, può aumentare così la luminosità del cluster ma non è detto.
+
+* **S0** (Velocità di dispersione centrale): Rappresenta la velocità media con cui le stelle si muovono nel cluster. Una velocità di dispersione maggiore può essere correlata a un cluster più dinamico e massiccio, contribuendo a una maggiore luminosità totale.
+
+* **VHB** (Livello del ramo orizzontale): Indica la luminosità delle stelle in una fase evolutiva specifica. Un livello del ramo orizzontale più alto significa stelle più luminose in quella fase, aumentando la luminosità complessiva del cluster.
+
+* **Ellipt** (Ellitticità): Misura la forma del cluster. Un cluster più ellittico può influenzare la distribuzione della luce, alterando la percezione della luminosità e quindi la magnitudine assoluta.
+
+In sintesi, queste variabili influenzano la magnitudine assoluta (Mv) del cluster poiché determinano la distribuzione, la densità e la luminosità delle stelle all'interno del cluster.
+
+
+## DAG
+
+Per la costruzione del grafo direzionato verrà utilizzato l'algoritmo PC (Peter-Clark). Questo metodo parte dalla ricerca delle correlazioni tra le variabili e, attraverso test di indipendenza, consente di disegnare un grafo direzionato che rappresenta le relazioni causali tra le variabili.
+
+```{r}
+library(ggm)
+library(pcalg)
+suffStat <- list(C=c, n=nrow(df_data))
+indepTest <- gaussCItest
+cpdag_dyn <- pc(suffStat, indepTest, p=ncol(df_data), alpha=0.1)
+nodes(cpdag_dyn@graph) <- names(df_data)
+plot(cpdag_dyn@graph)
+```
+Si noti che il grafo ottenuto non è propriamente un DAG (Directed Acyclic Graph), poiché sono presenti alcuni cicli tra le variabili. Per eliminare questi cicli, si modificano le relazioni ottenute. Questo è possibile poiché l'algoritmo PC, per sua natura, può non essere in grado di distinguere completamente tra tutte le possibili strutture causali, e potrebbero esserci casi in cui l'orientamento degli archi non è definito con certezza assoluta. Si utilizzano quindi le conoscenze a priori sull'argomento per selezionare il grafo che meglio rappresenta le relazioni tra le variabili del dataset. Alcune connessioni potrebbero non riflettere correttamente le relazioni causali fisiche, pertanto si apportano le seguenti modifiche:
+
+* Modifica: La connessione VHB -> B.V potrebbe non essere intuitiva. Sebbene la luminosità del ramo orizzontale (VHB) possa influenzare l'indice di colore (B.V), è più comune che l'indice di colore (B.V) influenzi la determinazione delle stelle nel ramo orizzontale. Pertanto, si inverte la direzione a B.V -> VHB.
+
+* Aggiunta: Il livello del ramo orizzontale (VHB) è una misura diretta della luminosità delle stelle in una fase evolutiva specifica. Un valore più basso di VHB (indicando maggiore luminosità) contribuisce a una maggiore luminosità complessiva dell'ammasso. Per questo motivo, si aggiunge la connessione VHB -> Mv.
+
+* Eliminazione: La connessione Mv -> r.tidal è stata rimossa, questo perchè da un punto di vista astrofico non c'è infuenza diretta tra le due variabili in quanto sono proprietà diverse dell'ammasso.Tuttavia, come conferma anche il grafo, esistono invece delle dipendenze indirette tramite VHB come che sono giustificabili anche da un punto di vista fisico.
+
+Anche una connessione del tipo Ellipt -> Mv sarebbe fisicamente plausibile, tuttavia difficile da interpretare e spiegare, per evitare di alterare eccessivamente il grafo originale, ho preferito non modificarla.
+
+La parte destra del grafo, che include le variabili log.rho, log.t, S0 e Conc, non è stata trattata con la stessa attenzione della parte sinistra, poiché queste variabili risultano scollegate dalla variabile Mv e, sotto un profilo fisico, anche parzialmente non rilevanti per l'obiettivo di questo progetto oltre ad essere di difficile interpetazione. Sono stati comunque sistemati i vari cicli in modo da rederlo un vero e proprio DAG cercando un iterpretazione fisica adeguata. 
+
+```{r}
+
+correct_dag <- DAG(B.V~Metal, VHB~B.V:r.tidal, r.tidal~B.V, Mv~VHB, Ellipt~VHB:Mv, Conc~log.t, log.t~log.rho, log.t~S0, S0~log.rho)
+plot(as(correct_dag, "graphNEL"))
+
+```
+
+Da notare da questo risultato finale che con l'algoritmo PC si escludono alcune relazioni individuate precedentemente dal grafo non direzionato. Inoltre questa divisione tra questi due blocchi di variabili rispetto ad "Mv" è qualcosa che ci si aspettava avendo già visto i risultati ottenuti con i modelli di regressione lineare.
+
+## Risultati ottenuti
+
+Utilizzando il grafo non direzionato ottenuto tramite la procedura GLASSO, abbiamo inizialmente identificato delle relazioni tra la variabile Mv e le altre variabili rimanenti. Alcune di queste relazioni sono state confermate nella costruzione del grafo direzionato (DAG) utilizzando l'algoritmo PC, mentre altre sono state escluse. Il grafo non direzionato aveva suggerito più connessioni, ma molte di esse non erano chiare né particolarmente dirette dal punto di vista fisico.
+
+Analizzando il DAG ottenuto, si osserva che Mv sembra dipendere direttamente solo dalla variabile VHB. Quando si considera VHB, Mv mostra una dipendenza condizionata anche da B.V e r.tidal. Inoltre, se ci si condiziona anche su B.V, Mv appare influenzata anche da Metal, sebbene questa relazione sia più distante e meno diretta.
+
+In sintesi, il grafo direzionato chiarisce che Mv è principalmente influenzata da VHB e, condizionatamente, anche da B.V e r.tidal. L'inclusione di B.V nella condizione aggiunge una dipendenza più remota da Metal, suggerendo una struttura causale complessa e multi-livello per la variabile Mv.
+
+# Conclusioni
+
+In queste pagine sono stati discussi i modelli ottenuti attraverso tecniche di regressione lineare per descrivere la magnitudine assoluta di un ammasso globulare. Sono stati esplorati diversi modelli, sia tramite analisi manuale che mediante metodi iterativi. Tra i vari modelli analizzati, il modello che è risultato migliore da un punto di vista di efficacia, semplicità e rilevanza delle variabili coinvolte è stato:
+
+Mv ~ Ellipt + VHB
+
+Lo studio ha affrontato diverse difficoltà, in particolare nelle fasi iniziali del progetto, a causa della complessità dell'argomento e dell'elevato numero di variabili nel dataset, la maggior parte delle quali di natura fisica, con alcune eccezioni. Nonostante queste sfide, i risultati ottenuti sono stati soddisfacenti e coerenti con l'obiettivo prefissato.
+
+Successivamente, è stata effettuata un'analisi grafica per individuare le relazioni causali tra le variabili del dataset. La creazione del grafo non direzionato ha permesso di identificare preliminarmente le connessioni causali tra le variabili, con un focus particolare sulla magnitudine assoluta. Successivamente, è stato costruito il grafo direzionato (DAG) utilizzando l'algoritmo PC. Tuttavia, l'algoritmo non è riuscito a catturare correttamente tutte le relazioni causali e ha richiesto alcune modifiche.
+
+Questa analisi ha confermato i risultati ottenuti inizialmente tramite i modelli di regressione. In particolare, è stata confermata una forte influenza della variabile VHB sulla magnitudine assoluta (Mv). Inoltre, le altre variabili che influenzano Mv sono state riscontrate nei modelli lineari, anche se con un impatto minore rispetto a VHB.
+
+Per quanto riguarda la variabile Ellipt, l'analisi grafica suggerisce che sia Mv a influenzarla, piuttosto che il contrario. Tuttavia, dal punto di vista fisico, questa relazione è complessa e le due variabili dipendono parzialmente l'una dall'altra. In pratica, Ellipt e Mv sono correlate in modo bidirezionale, con entrambe le variabili che possono influenzarsi reciprocamente.
+
+Nel contesto della fisica degli ammassi globulari, l'ellitticità (Ellipt) del cluster e la magnitudine assoluta (Mv) possono essere legate attraverso meccanismi indiretti. Ad esempio, la forma ellittica di un cluster potrebbe riflettere aspetti della sua evoluzione e distribuzione stellare, che a loro volta influenzano la sua luminosità complessiva. Tuttavia, la magnitudine assoluta può anche fornire informazioni sullo stato evolutivo del cluster che potrebbe influenzare la sua ellitticità osservata. Quindi, mentre il grafo suggerisce una direzione causale specifica, la realtà fisica implica una relazione più complessa e bidirezionale tra Ellipt e Mv.
+
+Tutti i risultati ottenuti, sebbene utili, rappresentano solo il punto di partenza per ulteriori ricerche e studi sperimentali. Questi risultati offrono ottime basi per approfondire la comprensione della struttura e delle dinamiche degli ammassi globulari.
+
+Le connessioni e le influenze identificate tra le variabili possono servire come guida per indagini più dettagliate, che potrebbero includere studi empirici più approfonditi e modelli teorici avanzati. Questi ulteriori studi potrebbero contribuire a chiarire le relazioni causali tra le variabili, esplorare meccanismi fisici sottostanti e migliorare la nostra comprensione della formazione e dell'evoluzione degli ammassi globulari. In definitiva, le scoperte fatte forniscono un'importante base di partenza per ampliare la nostra conoscenza in questo campo affascinante e complesso.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
